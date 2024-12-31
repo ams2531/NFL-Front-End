@@ -3,7 +3,7 @@ from flask_cors import CORS
 import joblib
 import numpy as np
 
-app = Flask(name)
+app = Flask(name)  # Fixed this line
 CORS(app)
 
 # Load the model and scaler
