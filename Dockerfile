@@ -1,13 +1,13 @@
-FROM python:3.9-slim
+FROM python:3.9.7-slim
 
 WORKDIR /app
 
-# Install gunicorn explicitly
-RUN pip install gunicorn
+# Install system dependencies
+RUN apt-get update && apt-get install -y <br>    gcc <br>    python3-dev <br>    && rm -rf /var/lib/apt/lists/*
 
 # Copy and install requirements
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy all files
 COPY . .
@@ -15,5 +15,5 @@ COPY . .
 # Make sure we expose the port
 EXPOSE 10000
 
-# Run gunicorn with explicit path
-CMD ["python", "-m", "gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
+# Run gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
