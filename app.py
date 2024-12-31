@@ -1,111 +1,120 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 from flask_cors import CORS
-import pandas as pd
-import numpy as np
-import joblib
-import os
+import random
 
-app = Flask(__name__)
+app = Flask(name)
 CORS(app)
 
-# Load the trained model at startup
-model = joblib.load('nfl_model.joblib')
-
-# Expanded teams dictionary with divisions
-teams = {
-    "AFC East": {
-        "Buffalo Bills": ["Josh Allen", "Stefon Diggs"],
-        "Miami Dolphins": ["Tua Tagovailoa", "Tyreek Hill"],
-        "New England Patriots": ["Mac Jones", "Rhamondre Stevenson"],
-        "New York Jets": ["Aaron Rodgers", "Garrett Wilson"]
-    },
-    "AFC North": {
-        "Baltimore Ravens": ["Lamar Jackson", "Mark Andrews"],
-        "Cincinnati Bengals": ["Joe Burrow", "Ja'Marr Chase"],
-        "Cleveland Browns": ["Deshaun Watson", "Amari Cooper"],
-        "Pittsburgh Steelers": ["Kenny Pickett", "Najee Harris"]
-    },
-    "AFC South": {
-        "Houston Texans": ["C.J. Stroud", "Tank Dell"],
-        "Indianapolis Colts": ["Anthony Richardson", "Jonathan Taylor"],
-        "Jacksonville Jaguars": ["Trevor Lawrence", "Travis Etienne"],
-        "Tennessee Titans": ["Will Levis", "DeAndre Hopkins"]
-    },
-    "AFC West": {
-        "Denver Broncos": ["Russell Wilson", "Courtland Sutton"],
-        "Kansas City Chiefs": ["Patrick Mahomes", "Travis Kelce"],
-        "Las Vegas Raiders": ["Jimmy Garoppolo", "Davante Adams"],
-        "Los Angeles Chargers": ["Justin Herbert", "Keenan Allen"]
-    },
-    "NFC East": {
-        "Dallas Cowboys": ["Dak Prescott", "CeeDee Lamb"],
-        "New York Giants": ["Daniel Jones", "Saquon Barkley"],
-        "Philadelphia Eagles": ["Jalen Hurts", "A.J. Brown"],
-        "Washington Commanders": ["Sam Howell", "Terry McLaurin"]
-    },
-    "NFC North": {
-        "Chicago Bears": ["Justin Fields", "DJ Moore"],
-        "Detroit Lions": ["Jared Goff", "Amon-Ra St. Brown"],
-        "Green Bay Packers": ["Jordan Love", "Christian Watson"],
-        "Minnesota Vikings": ["Kirk Cousins", "Justin Jefferson"]
-    },
-    "NFC South": {
-        "Atlanta Falcons": ["Desmond Ridder", "Drake London"],
-        "Carolina Panthers": ["Bryce Young", "Adam Thielen"],
-        "New Orleans Saints": ["Derek Carr", "Chris Olave"],
-        "Tampa Bay Buccaneers": ["Baker Mayfield", "Mike Evans"]
-    },
-    "NFC West": {
-        "Arizona Cardinals": ["Kyler Murray", "Marquise Brown"],
-        "Los Angeles Rams": ["Matthew Stafford", "Cooper Kupp"],
-        "San Francisco 49ers": ["Brock Purdy", "Christian McCaffrey"],
-        "Seattle Seahawks": ["Geno Smith", "DK Metcalf"]
-    }
+# Team strength ratings (mock data)
+TEAM_RATINGS = {
+    "Arizona Cardinals": 78,
+    "Atlanta Falcons": 80,
+    "Baltimore Ravens": 92,
+    "Buffalo Bills": 89,
+    "Carolina Panthers": 75,
+    "Chicago Bears": 76,
+    "Cincinnati Bengals": 86,
+    "Cleveland Browns": 84,
+    "Dallas Cowboys": 88,
+    "Denver Broncos": 77,
+    "Detroit Lions": 87,
+    "Green Bay Packers": 83,
+    "Houston Texans": 82,
+    "Indianapolis Colts": 81,
+    "Jacksonville Jaguars": 83,
+    "Kansas City Chiefs": 91,
+    "Las Vegas Raiders": 79,
+    "Los Angeles Chargers": 85,
+    "Los Angeles Rams": 82,
+    "Miami Dolphins": 86,
+    "Minnesota Vikings": 82,
+    "New England Patriots": 77,
+    "New Orleans Saints": 81,
+    "New York Giants": 78,
+    "New York Jets": 80,
+    "Philadelphia Eagles": 90,
+    "Pittsburgh Steelers": 83,
+    "San Francisco 49ers": 93,
+    "Seattle Seahawks": 82,
+    "Tampa Bay Buccaneers": 81,
+    "Tennessee Titans": 79,
+    "Washington Commanders": 76
 }
 
-@app.route('/')
-def serve_frontend():
-    return send_from_directory('.', 'index.html')
-
-@app.route('/teams', methods=['GET'])
-def get_teams():
-    try:
-        return jsonify({
-            'success': True,
-            'teams': teams
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+def calculate_prediction(home_team, away_team):
+    home_rating = TEAM_RATINGS.get(home_team, 80)
+    away_rating = TEAM_RATINGS.get(away_team, 80)
+    
+    # Add home field advantage
+    home_rating += 3
+    
+    # Calculate base point differential
+    point_diff = (home_rating - away_rating) * 0.5
+    
+    # Add some randomness
+    point_diff += random.uniform(-3, 3)
+    
+    # Calculate touchdowns
+    home_tds = max(1.5, (home_rating / 14) + random.uniform(-0.5, 0.5))
+    away_tds = max(1.0, (away_rating / 14) + random.uniform(-0.5, 0.5))
+    
+    # Calculate total points
+    home_points = round(home_tds * 7)
+    away_points = round(away_tds * 7)
+    
+    # Calculate moneyline odds
+    if point_diff > 0:
+        moneyline = f"-{round(abs(point_diff) * 22)}"
+    else:
+        moneyline = f"+{round(abs(point_diff) * 22)}"
+    
+    # Calculate confidence
+    confidence = min(95, max(50, abs(home_rating - away_rating) + 50))
+    
+    return {
+        'home_points': home_points,
+        'away_points': away_points,
+        'home_tds': round(home_tds, 1),
+        'away_tds': round(away_tds, 1),
+        'moneyline': moneyline,
+        'confidence': confidence
+    }
 
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
         data = request.json
-        home_team = data.get('home_team')
-        away_team = data.get('away_team')
+        home_team = data.get('homeTeam', '')
+        away_team = data.get('awayTeam', '')
         
-        # Example: Extract features from input data (this needs to match your model's input format)
-        features = [home_team, away_team]  # Replace with actual feature extraction logic
-        features = np.array(features).reshape(1, -1)
+        if not home_team or not away_team:
+            return jsonify({'error': 'Both home and away teams are required'}), 400
+            
+        pred = calculate_prediction(home_team, away_team)
         
-        # Make prediction
-        prediction = model.predict(features)
+        # Format response
+        response = {
+            'spread': f"{home_team} {pred['home_points'] - pred['away_points']:.1f}",
+            'moneyline': pred['moneyline'],
+            'overUnder': f"{pred['home_points'] + pred['away_points']:.1f}",
+            'confidence': f"{pred['confidence']}%",
+            'predictions': {
+                'touchdowns': {
+                    'home': pred['home_tds'],
+                    'away': pred['away_tds']
+                },
+                'totalPoints': {
+                    'home': pred['home_points'],
+                    'away': pred['away_points']
+                }
+            }
+        }
         
-        return jsonify({
-            'success': True,
-            'prediction': prediction.tolist(),
-            'home_team': home_team,
-            'away_team': away_team,
-            'message': 'Prediction made successfully'
-        })
+        return jsonify(response)
+        
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+        print(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)
+if name == 'main':
+    app.run(host='0.0.0.0', port=10000)
