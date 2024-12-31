@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-app = Flask(name)  # Note the double underscores
+app = Flask(__name__)  # Fix: Add underscores
 CORS(app)
 
 @app.route('/predict', methods=['POST'])
@@ -11,7 +11,7 @@ def predict():
         home_team = data.get('homeTeam', '')
         away_team = data.get('awayTeam', '')
         
-        # For now, return mock data
+        # Your prediction logic here
         response = {
             'spread': f"{home_team} -3.5",
             'moneyline': "-150",
@@ -35,5 +35,5 @@ def predict():
         print(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-if name == 'main':
+if __name__ == '__main__':  # Fix: Add underscores
     app.run(host='0.0.0.0', port=10000)
